@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel de Automação MQTT</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    .glass {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans pb-12">
+
+  <div class="max-w-5xl mx-auto px-4 py-8">
+    <header class="mb-8 text-center sm:text-left flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-slate-800 pb-6">
+      <div>
+        <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+          Painel de Automação MQTT
+        </h1>
+        <p class="text-slate-400 text-sm mt-1">Controle de dispositivos e automação por tópicos independentes</p>
+      </div>
+      <div id="statusBadge" class="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 text-sm font-medium">
+        <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+        <span id="statusText">Desconectado</span>
+      </div>
+    </header>
+
+    <section class="glass rounded-xl p-6 mb-8 shadow-xl">
+      <h2 class="text-lg font-semibold mb-4 text-slate-200 flex items-center gap-2">
+        <i data-lucide="server" class="w-5 h-5 text-blue-400"></i> Configuração do Broker MQTT (WebSocket)
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Servidor (Host/IP)</label>
+          <input type="text" id="mqttHost" value="w8767ca9.ala.us-east-1.emqxsl.com" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Porta WSS/WS</label>
+          <input type="number" id="mqttPort" value="8084" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Usuário (Opcional)</label>
+          <input type="text" id="mqttUser" value="RICARDO" placeholder="Usuário" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Senha (Opcional)</label>
+          <input type="password" id="mqttPass" value="senai" placeholder="Senha" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+      </div>
+
+      <div class="mt-4 flex justify-end gap-3">
+        <button id="btnConnect" onclick="toggleConnect()" class="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 font-medium text-sm transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20">
+          <i data-lucide="power" class="w-4 h-4"></i> Conectar
+        </button>
+      </div>
+    </section>
+
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold mb-4 text-slate-200 flex items-center gap-2">
+        <i data-lucide="layout-grid" class="w-5 h-5 text-emerald-400"></i> Comandos de Automação
+      </h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <div class="glass p-5 rounded-xl flex flex-col justify-between hover:border-slate-600 transition-all">
+          <div>
+            <div class="flex justify-between items-start mb-3">
+              <span class="p-2.5 bg-yellow-500/10 text-yellow-400 rounded-lg"><i data-lucide="lightbulb" class="w-6 h-6"></i></span>
+              <span class="text-[10px] font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">QoS 0</span>
+            </div>
+            <h3 class="font-semibold text-slate-200">Luz da Sala</h3>
+            <p class="text-xs text-slate-400 mt-1">Tópico: <code class="text-emerald-400">casa/sala/luz</code></p>
+          </div>
+          <div class="grid grid-cols-2 gap-2 mt-4">
+            <button onclick="publishMqtt('casa/sala/luz', 'ON')" class="py-2 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs font-semibold transition">LIGAR</button>
+            <button onclick="publishMqtt('casa/sala/luz', 'OFF')" class="py-2 bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold transition">DESLIGAR</button>
+          </div>
+        </div>
+
+        <div class="glass p-5 rounded-xl flex flex-col justify-between hover:border-slate-600 transition-all">
+          <div>
+            <div class="flex justify-between items-start mb-3">
+              <span class="p-2.5 bg-blue-500/10 text-blue-400 rounded-lg"><i data-lucide="thermometer-snowflake" class="w-6 h-6"></i></span>
+              <span class="text-[10px] font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">QoS 0</span>
+            </div>
+            <h3 class="font-semibold text-slate-200">Ar Condicionado</h3>
+            <p class="text-xs text-slate-400 mt-1">Tópico: <code class="text-emerald-400">casa/clima/ar</code></p>
+          </div>
+          <div class="grid grid-cols-2 gap-2 mt-4">
+            <button onclick="publishMqtt('casa/clima/ar', '22C_COOL')" class="py-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-semibold transition">22°C Gelado</button>
+            <button onclick="publishMqtt('casa/clima/ar', 'OFF')" class="py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs font-semibold transition">Desligar</button>
+          </div>
+        </div>
+
+        <div class="glass p-5 rounded-xl flex flex-col justify-between hover:border-slate-600 transition-all">
+          <div>
+            <div class="flex justify-between items-start mb-3">
+              <span class="p-2.5 bg-purple-500/10 text-purple-400 rounded-lg"><i data-lucide="door-closed" class="w-6 h-6"></i></span>
+              <span class="text-[10px] font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">QoS 1</span>
+            </div>
+            <h3 class="font-semibold text-slate-200">Portão Garagem</h3>
+            <p class="text-xs text-slate-400 mt-1">Tópico: <code class="text-emerald-400">casa/portao/comando</code></p>
+          </div>
+          <div class="mt-4">
+            <button onclick="publishMqtt('casa/portao/comando', 'PULSE', 1)" class="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-semibold transition shadow-lg shadow-purple-600/20">Acionar Pulsar</button>
+          </div>
+        </div>
+
+        <div class="glass p-5 rounded-xl flex flex-col justify-between hover:border-slate-600 transition-all">
+          <div>
+            <div class="flex justify-between items-start mb-3">
+              <span class="p-2.5 bg-teal-500/10 text-teal-400 rounded-lg"><i data-lucide="droplets" class="w-6 h-6"></i></span>
+              <span class="text-[10px] font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">QoS 0</span>
+            </div>
+            <h3 class="font-semibold text-slate-200">Irrigação Jardim</h3>
+            <p class="text-xs text-slate-400 mt-1">Tópico: <code class="text-emerald-400">jardim/irrigacao/ativar</code></p>
+          </div>
+          <div class="mt-4">
+            <button onclick="publishMqtt('jardim/irrigacao/ativar', 'START_10MIN')" class="w-full py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-xs font-semibold transition shadow-lg shadow-teal-600/20">Molhar (10 min)</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="glass rounded-xl p-6 mb-8">
+      <h2 class="text-lg font-semibold mb-4 text-slate-200 flex items-center gap-2">
+        <i data-lucide="send" class="w-5 h-5 text-indigo-400"></i> Enviar Comando Customizado
+      </h2>
+      <form onsubmit="handleCustomPublish(event)" class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+        <input type="text" id="customTopic" placeholder="Tópico (ex: minha/home/sensor)" required class="sm:col-span-5 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+        <input type="text" id="customPayload" placeholder="Mensagem/Payload (ex: 100, true, 'START')" required class="sm:col-span-5 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+        <button type="submit" class="sm:col-span-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-4 py-2 text-sm font-semibold transition">
+          Publicar
+        </button>
+      </form>
+    </section>
+
+    <section class="glass rounded-xl p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-semibold text-slate-200 flex items-center gap-2">
+          <i data-lucide="terminal" class="w-5 h-5 text-amber-400"></i> Console de Atividades
+        </h2>
+        <button onclick="clearLogs()" class="text-xs text-slate-400 hover:text-slate-200 underline">Limpar Console</button>
+      </div>
+      <div id="logConsole" class="bg-slate-950 rounded-lg p-4 h-48 overflow-y-auto font-mono text-xs space-y-1.5 border border-slate-800 text-slate-300">
+        <div class="text-slate-500">// Clique em "Conectar" para iniciar a comunicação via WebSocket...</div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    let client = null;
+    let isConnected = false;
+
+    // Evita que mensagens recebidas injetem HTML no console
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    function log(message, type = 'info') {
+      const consoleEl = document.getElementById('logConsole');
+      const time = new Date().toLocaleTimeString();
+      let colorClass = 'text-slate-300';
+
+      if (type === 'success') colorClass = 'text-emerald-400';
+      if (type === 'error') colorClass = 'text-rose-400';
+      if (type === 'sent') colorClass = 'text-blue-400';
+
+      const entry = document.createElement('div');
+      entry.className = colorClass;
+      entry.innerHTML = `<span class="text-slate-600">[${time}]</span> ${message}`;
+      consoleEl.appendChild(entry);
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    function clearLogs() {
+      document.getElementById('logConsole').innerHTML = '';
+    }
+
+    function toggleConnect() {
+      if (isConnected) disconnectMqtt();
+      else connectMqtt();
+    }
+
+    function connectMqtt() {
+      const host = document.getElementById('mqttHost').value.trim();
+      const port = Number(document.getElementById('mqttPort').value);
+      const user = document.getElementById('mqttUser').value.trim();
+      const pass = document.getElementById('mqttPass').value.trim();
+      const clientId = 'web_client_' + Math.random().toString(16).substr(2, 8);
+
+      if (!host || !port) {
+        alert('Por favor, informe o Servidor e a Porta.');
+        return;
+      }
+
+      log(`Conectando ao broker ${esc(host)}:${port}...`);
+
+      // Caminho /mqtt explícito (padrão do EMQX para WebSocket)
+      client = new Paho.MQTT.Client(host, port, '/mqtt', clientId);
+
+      client.onConnectionLost = onConnectionLost;
+      client.onMessageArrived = onMessageArrived;
+
+      const options = {
+        onSuccess: onConnectSuccess,
+        onFailure: onConnectFailure,
+        useSSL: port === 8084 || port === 8884 || port === 443,
+        timeout: 8,
+        keepAliveInterval: 30,
+        cleanSession: true
+      };
+
+      if (user) options.userName = user;
+      if (pass) options.password = pass;
+
+      client.connect(options);
+    }
+
+    function disconnectMqtt() {
+      if (client && isConnected) {
+        client.disconnect();
+        updateUI(false);
+        log('Desconectado do servidor MQTT pelo usuário.', 'info');
+      }
+    }
+
+    function onConnectSuccess() {
+      updateUI(true);
+      log('✅ Conectado com sucesso ao Broker MQTT!', 'success');
+
+      client.subscribe('casa/#');
+      client.subscribe('jardim/#');
+      log('Inscrito nos tópicos de monitoramento: casa/# e jardim/#', 'info');
+    }
+
+    function onConnectFailure(response) {
+      updateUI(false);
+      log(`❌ Falha na conexão: ${esc(response.errorMessage)}`, 'error');
+    }
+
+    function onConnectionLost(response) {
+      updateUI(false);
+      if (response.errorCode !== 0) {
+        log(`⚠️ Conexão perdida: ${esc(response.errorMessage)}`, 'error');
+      }
+    }
+
+    function onMessageArrived(message) {
+      log(`📩 [Recebido] Tópico: <b>${esc(message.destinationName)}</b> | Mensagem: <b>${esc(message.payloadString)}</b>`, 'success');
+    }
+
+    function publishMqtt(topic, payload, qos = 0) {
+      if (!isConnected || !client) {
+        alert('Você precisa estar conectado ao broker para enviar comandos!');
+        log('Tentativa de envio falhou: Não conectado ao broker.', 'error');
+        return;
+      }
+
+      try {
+        const message = new Paho.MQTT.Message(payload);
+        message.destinationName = topic;
+        message.qos = qos;
+        client.send(message);
+        log(`📤 [Enviado] Tópico: <b class="underline">${esc(topic)}</b> -> Payload: <b>${esc(payload)}</b>`, 'sent');
+      } catch (e) {
+        log(`Erro ao enviar mensagem: ${esc(e.message)}`, 'error');
+      }
+    }
+
+    function handleCustomPublish(event) {
+      event.preventDefault();
+      const topic = document.getElementById('customTopic').value.trim();
+      const payload = document.getElementById('customPayload').value.trim();
+      if (topic && payload) publishMqtt(topic, payload);
+    }
+
+    function updateUI(connected) {
+      isConnected = connected;
+      const statusBadge = document.getElementById('statusBadge');
+      const statusText = document.getElementById('statusText');
+      const btnConnect = document.getElementById('btnConnect');
+
+      if (connected) {
+        statusBadge.className = 'flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm font-medium';
+        statusBadge.querySelector('span').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
+        statusText.innerText = 'Conectado';
+
+        btnConnect.className = 'px-5 py-2.5 rounded-lg bg-rose-600 hover:bg-rose-500 font-medium text-sm transition-all flex items-center gap-2 shadow-lg shadow-rose-600/20';
+        btnConnect.innerHTML = '<i data-lucide="power-off" class="w-4 h-4"></i> Desconectar';
+      } else {
+        statusBadge.className = 'flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 text-sm font-medium';
+        statusBadge.querySelector('span').className = 'w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse';
+        statusText.innerText = 'Desconectado';
+
+        btnConnect.className = 'px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 font-medium text-sm transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20';
+        btnConnect.innerHTML = '<i data-lucide="power" class="w-4 h-4"></i> Conectar';
+      }
+      lucide.createIcons();
+    }
+  </script>
+</body>
+</html>
